@@ -1,50 +1,64 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <string.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 int main() {
     int fd;
-    char buffer[100];
-    int n;
+    char write_buf[] = "Operating System Lab";
+    char read_buf[50];
 
-    // Open file (read only)
-    fd = open("test.txt", O_RDONLY);
+    struct stat st;
+    struct flock fl;
 
-    if(fd < 0) {
-        write(1, "Error opening file\n", 20);
+    DIR *d;
+    struct dirent *dir;
+
+    // Open/Create file
+    fd = open("oslab.txt", O_CREAT | O_RDWR, 0644);
+    if (fd < 0) {
+        perror("open");
         return 1;
     }
 
-    // Read from file
-    n = read(fd, buffer, 100);
+    // Write to file
+    write(fd, write_buf, strlen(write_buf));
 
-    // Write to screen (1 = stdout)
-    write(1, buffer, n);
+    // Move file pointer to beginning
+    lseek(fd, 0, SEEK_SET);
+
+    // Read from file
+    read(fd, read_buf, sizeof(read_buf));
+    printf("File content: %s\n", read_buf);
+
+    // File locking using fcntl
+    fl.l_type = F_WRLCK;
+    fl.l_whence = SEEK_SET;
+    fl.l_start = 0;
+    fl.l_len = 0;  // lock entire file
+
+    fcntl(fd, F_SETLK, &fl);
+    printf("File locked using fcntl()\n");
+
+    // Get file stats
+    stat("oslab.txt", &st);
+    printf("File size: %ld bytes\n", st.st_size);
 
     // Close file
     close(fd);
 
-    return 0;
-}
-------------
-#include <stdio.h>
-#include <dirent.h>
-
-int main() {
-    DIR *d;
-    struct dirent *dir;
-
-    // Open current directory
+    // Open directory
+    printf("Directory contents:\n");
     d = opendir(".");
 
     if (d == NULL) {
-        printf("Cannot open directory\n");
+        perror("opendir");
         return 1;
     }
 
-    printf("Files in directory:\n");
-
-    // Read directory entries
+    // Read directory contents
     while ((dir = readdir(d)) != NULL) {
         printf("%s\n", dir->d_name);
     }
